@@ -550,6 +550,7 @@
       btn.classList.toggle('active', on);
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    document.documentElement.classList.add('i18n-ready');
   }
 
   function emit() {

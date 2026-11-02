@@ -28,6 +28,9 @@ body {
   min-height: 100vh;
   line-height: 1.45;
 }
+/* Saved English would otherwise flash the Chinese markup before i18n.js runs. */
+html[data-lang="en"] body { visibility: hidden; }
+html.i18n-ready body { visibility: visible; }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
