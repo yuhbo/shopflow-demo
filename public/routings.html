@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Routings — ShopFlow</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
+    <nav class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/materials.html">Materials</a>
+      <a href="/routings.html">Routings</a>
+      <a href="/work-orders.html">Work Orders</a>
+      <a href="/shop">Shop Floor</a>
+      <a href="/inventory.html">Inventory</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Routings</h1>
+    <p class="subtitle">Ordered operation lists that can be applied to work orders.</p>
+    <div class="toolbar">
+      <button class="primary" id="btn-new">+ New routing</button>
+    </div>
+    <div id="list"></div>
+  </main>
+
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h2>New routing</h2>
+      <div class="form-grid">
+        <label>Code <input id="f-code" placeholder="RT-WIDGET" /></label>
+        <label>Finished material
+          <select id="f-mat"></select>
+        </label>
+        <label style="grid-column:1/-1">Name <input id="f-name" /></label>
+        <label style="grid-column:1/-1">Notes <textarea id="f-notes"></textarea></label>
+      </div>
+      <p class="muted" style="margin:0 0 0.5rem">Operations (seq / code / name / work center) — one per line, pipe-separated</p>
+      <textarea id="f-ops" placeholder="10 | OP10 | Cut blank | SAW-01&#10;20 | OP20 | CNC mill | CNC-02"></textarea>
+      <div class="modal-actions">
+        <button class="ghost" id="btn-cancel">Cancel</button>
+        <button class="primary" id="btn-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const modal = document.getElementById('modal');
+    async function loadMats() {
+      const mats = await ShopFlow.api('/api/materials');
+      document.getElementById('f-mat').innerHTML =
+        '<option value="">— optional —</option>' +
+        mats.map(m => `<option value="${m.id}">${ShopFlow.escape(m.sku)} — ${ShopFlow.escape(m.name)}</option>`).join('');
+    }
+    async function load() {
+      const routings = await ShopFlow.api('/api/routings');
+      document.getElementById('list').innerHTML = routings.map(r => `
+        <section class="wo-card">
+          <div class="wo-card-head">
+            <strong class="mono">${ShopFlow.escape(r.code)}</strong>
+            <span>${ShopFlow.escape(r.name)}</span>
+            <span class="muted">${r.material_sku ? ShopFlow.escape(r.material_sku) : 'no FG link'}</span>
+          </div>
+          <div class="wo-card-body">
+            <ul class="ops-list">
+              ${r.operations.map(op => `
+                <li>
+                  <span class="mono muted">${op.seq}</span>
+                  <span class="mono">${ShopFlow.escape(op.code)}</span>
+                  <span>${ShopFlow.escape(op.name)}</span>
+                  <span class="spacer"></span>
+                  <span class="muted">${ShopFlow.escape(op.work_center || '')}</span>
+                  <span class="muted">${op.std_minutes || 0} min</span>
+                </li>`).join('')}
+            </ul>
+          </div>
+        </section>`).join('') || '<div class="empty">No routings</div>';
+    }
+    document.getElementById('btn-new').onclick = async () => {
+      await loadMats();
+      modal.classList.add('show');
+    };
+    document.getElementById('btn-cancel').onclick = () => modal.classList.remove('show');
+    document.getElementById('btn-save').onclick = async () => {
+      try {
+        const ops = document.getElementById('f-ops').value.split('\n')
+          .map(l => l.trim()).filter(Boolean)
+          .map(l => {
+            const [seq, code, name, work_center, std_minutes] = l.split('|').map(s => s.trim());
+            return { seq: Number(seq), code, name, work_center, std_minutes: Number(std_minutes) || 0 };
+          });
+        const mat = document.getElementById('f-mat').value;
+        await ShopFlow.api('/api/routings', {
+          method: 'POST',
+          body: {
+            code: document.getElementById('f-code').value,
+            name: document.getElementById('f-name').value,
+            material_id: mat ? Number(mat) : null,
+            notes: document.getElementById('f-notes').value,
+            operations: ops,
+          },
+        });
+        modal.classList.remove('show');
+        ShopFlow.toast('Routing created');
+        load();
+      } catch (e) { ShopFlow.toast(e.message, 'error'); }
+    };
+    load().catch(e => ShopFlow.toast(e.message, 'error'));
+  </script>
+</body>
+</html>

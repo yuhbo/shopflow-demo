@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Work Orders — ShopFlow</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
+    <nav class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/materials.html">Materials</a>
+      <a href="/routings.html">Routings</a>
+      <a href="/work-orders.html">Work Orders</a>
+      <a href="/shop">Shop Floor</a>
+      <a href="/inventory.html">Inventory</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Work Orders</h1>
+    <p class="subtitle">Create orders, apply a routing, release to the shop floor.</p>
+    <div class="toolbar">
+      <button class="primary" id="btn-new">+ New work order</button>
+      <button class="ghost" id="btn-refresh">Refresh</button>
+    </div>
+    <div id="list"></div>
+  </main>
+
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h2>New work order</h2>
+      <div class="form-grid">
+        <label>WO number <input id="f-num" placeholder="WO-1100" /></label>
+        <label>Qty planned <input id="f-qty" type="number" value="10" min="1" /></label>
+        <label>Finished material
+          <select id="f-mat"></select>
+        </label>
+        <label>Routing
+          <select id="f-routing"></select>
+        </label>
+        <label>Due date <input id="f-due" type="date" /></label>
+        <label style="grid-column:1/-1">Notes <textarea id="f-notes"></textarea></label>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="btn-cancel">Cancel</button>
+        <button class="primary" id="btn-save">Create as draft</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="detail-modal">
+    <div class="modal" style="width:min(640px,100%)">
+      <h2 id="d-title">Work order</h2>
+      <div id="d-body"></div>
+      <div class="modal-actions">
+        <button class="ghost" id="d-close">Close</button>
+        <button class="primary" id="d-release">Release</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let materials = [], routings = [], currentId = null;
+    const modal = document.getElementById('modal');
+    const detail = document.getElementById('detail-modal');
+
+    async function loadLookups() {
+      materials = await ShopFlow.api('/api/materials');
+      routings = await ShopFlow.api('/api/routings');
+      document.getElementById('f-mat').innerHTML = materials.map(m =>
+        `<option value="${m.id}">${ShopFlow.escape(m.sku)} — ${ShopFlow.escape(m.name)}</option>`).join('');
+      document.getElementById('f-routing').innerHTML =
+        '<option value="">— none —</option>' +
+        routings.map(r => `<option value="${r.id}">${ShopFlow.escape(r.code)} — ${ShopFlow.escape(r.name)}</option>`).join('');
+    }
+
+    async function load() {
+      const rows = await ShopFlow.api('/api/work-orders');
+      document.getElementById('list').innerHTML = rows.map(wo => `
+        <section class="wo-card" id="wo-${wo.id}">
+          <div class="wo-card-head">
+            <strong class="mono">${ShopFlow.escape(wo.wo_number)}</strong>
+            ${ShopFlow.badge(wo.status)}
+            <span>${ShopFlow.escape(wo.material_sku)} · qty ${wo.qty_planned}</span>
+            <span class="muted">${wo.routing_code ? ShopFlow.escape(wo.routing_code) : 'no routing'}</span>
+            <span class="spacer"></span>
+            <span class="muted">due ${ShopFlow.escape(wo.due_date || '—')}</span>
+            <button data-id="${wo.id}" class="btn-view">View / ops</button>
+            ${wo.status === 'draft' ? `<button class="primary btn-release" data-id="${wo.id}">Release</button>` : ''}
+          </div>
+        </section>`).join('') || '<div class="empty">No work orders</div>';
+
+      document.querySelectorAll('.btn-view').forEach(b => b.onclick = () => openDetail(Number(b.dataset.id)));
+      document.querySelectorAll('.btn-release').forEach(b => b.onclick = () => release(Number(b.dataset.id)));
+
+      const hash = Number(location.hash.replace('#',''));
+      if (hash) openDetail(hash);
+    }
+
+    async function openDetail(id) {
+      currentId = id;
+      const wo = await ShopFlow.api(`/api/work-orders/${id}`);
+      document.getElementById('d-title').textContent = `${wo.wo_number} · ${wo.material_sku}`;
+      document.getElementById('d-body').innerHTML = `
+        <p>${ShopFlow.badge(wo.status)} &nbsp; Planned ${wo.qty_planned} &nbsp; Completed ${wo.qty_completed}
+           &nbsp; <span class="muted">${ShopFlow.escape(wo.routing_name || 'No routing')}</span></p>
+        <ul class="ops-list">
+          ${wo.operations.map(op => `
+            <li>
+              <span class="mono muted">${op.seq}</span>
+              <span class="mono">${ShopFlow.escape(op.code)}</span>
+              <span>${ShopFlow.escape(op.name)}</span>
+              ${ShopFlow.badge(op.status)}
+              <span class="spacer"></span>
+              <span class="muted">good ${op.qty_good} / scrap ${op.qty_scrap}</span>
+            </li>`).join('') || '<li class="muted">No operations — apply a routing</li>'}
+        </ul>
+        <p class="hint" style="margin-top:0.75rem">Scan codes for shop floor:
+          <span class="mono">${ShopFlow.escape(wo.wo_number)}</span> or
+          <span class="mono">${ShopFlow.escape(wo.wo_number)}:OP20</span>
+        </p>`;
+      document.getElementById('d-release').style.display = wo.status === 'draft' ? '' : 'none';
+      detail.classList.add('show');
+    }
+
+    async function release(id) {
+      try {
+        await ShopFlow.api(`/api/work-orders/${id}/release`, { method: 'POST', body: {} });
+        ShopFlow.toast('Work order released');
+        detail.classList.remove('show');
+        load();
+      } catch (e) { ShopFlow.toast(e.message, 'error'); }
+    }
+
+    document.getElementById('btn-new').onclick = async () => {
+      await loadLookups();
+      const next = 'WO-' + (1000 + Math.floor(Math.random() * 9000));
+      document.getElementById('f-num').value = next;
+      modal.classList.add('show');
+    };
+    document.getElementById('btn-cancel').onclick = () => modal.classList.remove('show');
+    document.getElementById('d-close').onclick = () => detail.classList.remove('show');
+    document.getElementById('d-release').onclick = () => currentId && release(currentId);
+    document.getElementById('btn-refresh').onclick = () => load();
+    document.getElementById('btn-save').onclick = async () => {
+      try {
+        const routing = document.getElementById('f-routing').value;
+        await ShopFlow.api('/api/work-orders', {
+          method: 'POST',
+          body: {
+            wo_number: document.getElementById('f-num').value,
+            material_id: Number(document.getElementById('f-mat').value),
+            routing_id: routing ? Number(routing) : null,
+            qty_planned: Number(document.getElementById('f-qty').value) || 1,
+            due_date: document.getElementById('f-due').value || null,
+            notes: document.getElementById('f-notes').value,
+            status: 'draft',
+          },
+        });
+        modal.classList.remove('show');
+        ShopFlow.toast('Work order created');
+        load();
+      } catch (e) { ShopFlow.toast(e.message, 'error'); }
+    };
+
+    load().catch(e => ShopFlow.toast(e.message, 'error'));
+  </script>
+</body>
+</html>

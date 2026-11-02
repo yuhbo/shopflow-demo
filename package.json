@@ -1,0 +1,26 @@
+{
+  "name": "shopflow-demo",
+  "version": "1.0.0",
+  "description": "ShopFlow — light manufacturing demo (materials, routings, work orders, shop-floor reporting, inventory)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node src/db.js --reseed"
+  },
+  "keywords": [
+    "manufacturing",
+    "work-order",
+    "shop-floor",
+    "demo"
+  ],
+  "author": "Hong Yu",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shop Floor — ShopFlow</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
+    <nav class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/materials.html">Materials</a>
+      <a href="/routings.html">Routings</a>
+      <a href="/work-orders.html">Work Orders</a>
+      <a href="/shop">Shop Floor</a>
+      <a href="/inventory.html">Inventory</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Shop Floor</h1>
+    <p class="subtitle">Scan or select an operation, then Start / Complete. Barcode strings simulate a handheld scanner.</p>
+
+    <section class="card" style="margin-bottom:1rem">
+      <h2>Scan</h2>
+      <div class="hint">
+        Try seed codes: <span class="mono">WO-1001</span>,
+        <span class="mono">WO-1002</span>,
+        <span class="mono">WO-1002:OP20</span>
+      </div>
+      <div class="scan-box">
+        <label style="flex:1">Barcode / QR string
+          <input id="scan" placeholder="WO-1001 or WO-1001:OP20" autofocus />
+        </label>
+        <button class="primary" id="btn-lookup">Lookup</button>
+      </div>
+      <div id="focus" style="margin-top:1rem"></div>
+    </section>
+
+    <section>
+      <div class="toolbar">
+        <h2 style="margin:0">Released &amp; in progress</h2>
+        <span class="spacer"></span>
+        <button class="ghost" id="btn-refresh">Refresh board</button>
+      </div>
+      <div id="board"></div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="complete-modal">
+    <div class="modal">
+      <h2>Complete operation</h2>
+      <div class="form-grid">
+        <label>Qty good <input id="c-good" type="number" step="any" min="0" /></label>
+        <label>Qty scrap <input id="c-scrap" type="number" step="any" min="0" value="0" /></label>
+        <label>Issue material (optional)
+          <select id="c-issue-mat"><option value="">— skip —</option></select>
+        </label>
+        <label>Issue qty <input id="c-issue-qty" type="number" step="any" min="0" placeholder="0" /></label>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="c-cancel">Cancel</button>
+        <button class="ok" id="c-save">Complete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let pendingCompleteOp = null;
+    let materials = [];
+
+    async function loadMaterials() {
+      materials = await ShopFlow.api('/api/materials');
+      document.getElementById('c-issue-mat').innerHTML =
+        '<option value="">— skip —</option>' +
+        materials.map(m => `<option value="${m.id}">${ShopFlow.escape(m.sku)} (${m.on_hand} ${ShopFlow.escape(m.unit)})</option>`).join('');
+    }
+
+    function renderFocus(data) {
+      const box = document.getElementById('focus');
+      if (!data) { box.innerHTML = ''; return; }
+      const { work_order: wo, operations, focus } = data;
+      box.innerHTML = `
+        <div class="wo-card" style="margin:0">
+          <div class="wo-card-head">
+            <strong class="mono">${ShopFlow.escape(wo.wo_number)}</strong>
+            ${ShopFlow.badge(wo.status)}
+            <span>${ShopFlow.escape(wo.material_sku)} · plan ${wo.qty_planned}</span>
+          </div>
+          <div class="wo-card-body">
+            <ul class="ops-list">
+              ${operations.map(op => `
+                <li style="${focus && focus.id===op.id ? 'background:rgba(59,130,246,0.12);border-radius:6px;padding-left:0.4rem;padding-right:0.4rem' : ''}">
+                  <span class="mono muted">${op.seq}</span>
+                  <span class="mono">${ShopFlow.escape(op.code)}</span>
+                  <span>${ShopFlow.escape(op.name)}</span>
+                  ${ShopFlow.badge(op.status)}
+                  <span class="spacer"></span>
+                  ${op.status !== 'done' ? `
+                    <button class="primary btn-start" data-id="${op.id}" ${op.status==='in_progress'?'disabled':''}>Start</button>
+                    <button class="ok btn-complete" data-id="${op.id}" data-qty="${wo.qty_planned}">Complete</button>
+                  ` : `<span class="muted">good ${op.qty_good}</span>`}
+                </li>`).join('')}
+            </ul>
+          </div>
+        </div>`;
+      wireOpButtons(box);
+    }
+
+    function wireOpButtons(root) {
+      root.querySelectorAll('.btn-start').forEach(b => b.onclick = () => startOp(Number(b.dataset.id)));
+      root.querySelectorAll('.btn-complete').forEach(b => b.onclick = () => openComplete(Number(b.dataset.id), Number(b.dataset.qty)));
+    }
+
+    async function startOp(operation_id) {
+      try {
+        const scan = document.getElementById('scan').value.trim();
+        await ShopFlow.api('/api/shop/start', { method: 'POST', body: { operation_id, scan_code: scan || null } });
+        ShopFlow.toast('Operation started');
+        await refreshAll();
+        if (scan) await lookup(false);
+      } catch (e) { ShopFlow.toast(e.message, 'error'); }
+    }
+
+    async function openComplete(operation_id, defaultQty) {
+      pendingCompleteOp = operation_id;
+      await loadMaterials();
+      document.getElementById('c-good').value = defaultQty || 0;
+      document.getElementById('c-scrap').value = 0;
+      document.getElementById('c-issue-qty').value = '';
+      document.getElementById('c-issue-mat').value = '';
+      document.getElementById('complete-modal').classList.add('show');
+    }
+
+    document.getElementById('c-cancel').onclick = () => {
+      document.getElementById('complete-modal').classList.remove('show');
+      pendingCompleteOp = null;
+    };
+    document.getElementById('c-save').onclick = async () => {
+      try {
+        const issueMat = document.getElementById('c-issue-mat').value;
+        const issueQty = document.getElementById('c-issue-qty').value;
+        const result = await ShopFlow.api('/api/shop/complete', {
+          method: 'POST',
+          body: {
+            operation_id: pendingCompleteOp,
+            qty_good: Number(document.getElementById('c-good').value),
+            qty_scrap: Number(document.getElementById('c-scrap').value) || 0,
+            scan_code: document.getElementById('scan').value.trim() || null,
+            issue_material_id: issueMat ? Number(issueMat) : null,
+            issue_qty: issueQty ? Number(issueQty) : null,
+          },
+        });
+        document.getElementById('complete-modal').classList.remove('show');
+        ShopFlow.toast(result.finished ? 'WO finished — FG received to inventory' : 'Operation completed');
+        await refreshAll();
+        const scan = document.getElementById('scan').value.trim();
+        if (scan) await lookup(false);
+      } catch (e) { ShopFlow.toast(e.message, 'error'); }
+    };
+
+    async function lookup(showError = true) {
+      const code = document.getElementById('scan').value.trim();
+      if (!code) return;
+      try {
+        const data = await ShopFlow.api('/api/shop/lookup?code=' + encodeURIComponent(code));
+        renderFocus(data);
+      } catch (e) {
+        if (showError) ShopFlow.toast(e.message, 'error');
+      }
+    }
+
+    async function loadBoard() {
+      const board = await ShopFlow.api('/api/shop/board');
+      const el = document.getElementById('board');
+      if (!board.length) {
+        el.innerHTML = '<div class="empty">No released / in-progress work orders. Release a draft on the Work Orders page.</div>';
+        return;
+      }
+      el.innerHTML = board.map(wo => `
+        <section class="wo-card">
+          <div class="wo-card-head">
+            <strong class="mono">${ShopFlow.escape(wo.wo_number)}</strong>
+            ${ShopFlow.badge(wo.status)}
+            <span>${ShopFlow.escape(wo.material_sku)} · qty ${wo.qty_planned}</span>
+            <span class="spacer"></span>
+            <button class="ghost btn-fill" data-code="${ShopFlow.escape(wo.wo_number)}">Load in scan</button>
+          </div>
+          <div class="wo-card-body">
+            <ul class="ops-list">
+              ${wo.operations.map(op => `
+                <li>
+                  <span class="mono muted">${op.seq}</span>
+                  <span class="mono">${ShopFlow.escape(op.code)}</span>
+                  <span>${ShopFlow.escape(op.name)}</span>
+                  <span class="muted">${ShopFlow.escape(op.work_center || '')}</span>
+                  ${ShopFlow.badge(op.status)}
+                  <span class="spacer"></span>
+                  ${op.status !== 'done' ? `
+                    <button class="primary btn-start" data-id="${op.id}">Start</button>
+                    <button class="ok btn-complete" data-id="${op.id}" data-qty="${wo.qty_planned}">Complete</button>
+                  ` : `<span class="muted">good ${op.qty_good}</span>`}
+                </li>`).join('')}
+            </ul>
+          </div>
+        </section>`).join('');
+      wireOpButtons(el);
+      el.querySelectorAll('.btn-fill').forEach(b => b.onclick = () => {
+        document.getElementById('scan').value = b.dataset.code;
+        lookup();
+      });
+    }
+
+    async function refreshAll() {
+      await loadBoard();
+    }
+
+    document.getElementById('btn-lookup').onclick = () => lookup();
+    document.getElementById('scan').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') lookup();
+    });
+    document.getElementById('btn-refresh').onclick = () => refreshAll();
+
+    refreshAll().catch(e => ShopFlow.toast(e.message, 'error'));
+  </script>
+</body>
+</html>

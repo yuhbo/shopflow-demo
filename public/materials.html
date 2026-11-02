@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Materials — ShopFlow</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
+    <nav class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/materials.html">Materials</a>
+      <a href="/routings.html">Routings</a>
+      <a href="/work-orders.html">Work Orders</a>
+      <a href="/shop">Shop Floor</a>
+      <a href="/inventory.html">Inventory</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Materials</h1>
+    <p class="subtitle">Master data — SKU, name, unit, and on-hand quantity.</p>
+    <div class="toolbar">
+      <button class="primary" id="btn-new">+ New material</button>
+    </div>
+    <section class="card flat">
+      <table>
+        <thead>
+          <tr><th>SKU</th><th>Name</th><th>Unit</th><th class="right">On hand</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="modal">
+    <div class="modal">
+      <h2>New material</h2>
+      <div class="form-grid">
+        <label>SKU <input id="f-sku" placeholder="FG-WIDGET" /></label>
+        <label>Unit <input id="f-unit" value="ea" /></label>
+        <label style="grid-column:1/-1">Name <input id="f-name" placeholder="Widget assembly" /></label>
+        <label>On hand <input id="f-qty" type="number" step="any" value="0" /></label>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" id="btn-cancel">Cancel</button>
+        <button class="primary" id="btn-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const modal = document.getElementById('modal');
+    async function load() {
+      const rows = await ShopFlow.api('/api/materials');
+      document.getElementById('rows').innerHTML = rows.map(m => `
+        <tr>
+          <td class="mono">${ShopFlow.escape(m.sku)}</td>
+          <td>${ShopFlow.escape(m.name)}</td>
+          <td>${ShopFlow.escape(m.unit)}</td>
+          <td class="right">${m.on_hand}</td>
+        </tr>`).join('');
+    }
+    document.getElementById('btn-new').onclick = () => modal.classList.add('show');
+    document.getElementById('btn-cancel').onclick = () => modal.classList.remove('show');
+    document.getElementById('btn-save').onclick = async () => {
+      try {
+        await ShopFlow.api('/api/materials', {
+          method: 'POST',
+          body: {
+            sku: document.getElementById('f-sku').value,
+            name: document.getElementById('f-name').value,
+            unit: document.getElementById('f-unit').value,
+            on_hand: Number(document.getElementById('f-qty').value) || 0,
+          },
+        });
+        modal.classList.remove('show');
+        ShopFlow.toast('Material created');
+        load();
+      } catch (e) { ShopFlow.toast(e.message, 'error'); }
+    };
+    load().catch(e => ShopFlow.toast(e.message, 'error'));
+  </script>
+</body>
+</html>
