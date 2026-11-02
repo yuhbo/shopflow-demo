@@ -1,15 +1,27 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+const Database = require('better-sqlite3');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'shopflow.db');
+
+function resolveDbPath() {
+  if (process.env.DB_PATH) return process.env.DB_PATH;
+  // Free Render disk is ephemeral; /tmp is writable when DB_PATH is unset.
+  if (process.env.RENDER || process.env.NODE_ENV === 'production') {
+    return path.join(os.tmpdir(), 'shopflow.db');
+  }
+  return path.join(DATA_DIR, 'shopflow.db');
+}
+
+const DB_PATH = resolveDbPath();
 
 function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dir = path.dirname(DB_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 }
 
@@ -229,7 +241,7 @@ function openDatabase({ reseed = false } = {}) {
     if (fs.existsSync(wal)) fs.unlinkSync(wal);
     if (fs.existsSync(shm)) fs.unlinkSync(shm);
   }
-  const db = new DatabaseSync(DB_PATH);
+  const db = new Database(DB_PATH);
   createSchema(db);
   const seeded = seed(db);
   return { db, path: DB_PATH, seeded };
@@ -237,8 +249,9 @@ function openDatabase({ reseed = false } = {}) {
 
 if (require.main === module) {
   const reseed = process.argv.includes('--reseed');
-  const { path: p, seeded } = openDatabase({ reseed });
+  const { db, path: p, seeded } = openDatabase({ reseed });
   console.log(`Database ready at ${p} (seeded=${seeded || reseed})`);
+  db.close();
 }
 
 

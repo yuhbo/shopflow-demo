@@ -4,7 +4,7 @@ English clickable demo for light manufacturing:
 
 **Materials → Routings → Work Orders → Shop Floor reporting → Inventory**
 
-Single-plant demo mode (no multi-tenant login). Data is stored in a real **SQLite** file via Node’s built-in `node:sqlite` (Node ≥ 22.5). No cloud account required to run locally.
+Single-plant demo mode (no multi-tenant login). Data is stored in a real **SQLite** file via [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) (Node ≥ 18). No cloud account required to run locally.
 
 ## Quick start
 
@@ -24,7 +24,8 @@ Open **http://localhost:3847**
 
 ### Data file
 
-- Default path: `data/shopflow.db` (created on first start)
+- Local default: `data/shopflow.db` (created on first start)
+- When `RENDER` is set, or `NODE_ENV=production`, and `DB_PATH` is unset: `os.tmpdir()/shopflow.db` so the free ephemeral filesystem is writable. That file is wiped on restart.
 - Override: `DB_PATH=/absolute/path/to/file.db npm start`
 
 ## Pages
@@ -61,7 +62,7 @@ Scan string formats: `WO-1001` · `WO-1001:OP20`
 ## Stack
 
 - Node.js + Express
-- SQLite via `node:sqlite` (`DatabaseSync`) — **no native compile**
+- SQLite via `better-sqlite3` (`prepare` / `get` / `run` / `all` / `exec`, WAL mode)
 - Static HTML + CSS + `fetch` (no heavy SPA framework)
 
 ## Deploy (free tiers, short)
@@ -73,7 +74,7 @@ Any Node host that can keep a writable disk (or mount a volume) works.
 1. New **Web Service** from this folder  
 2. Build: `npm install`  
 3. Start: `npm start`  
-4. Add disk or set `DB_PATH` to a persistent path if the free instance is ephemeral  
+4. On the free plan the database defaults to the writable temp directory (`RENDER` is set). Data does not survive restarts. Add a disk and set `DB_PATH` if you need persistence.  
 
 ### Railway / Fly.io
 
@@ -84,7 +85,7 @@ Any Node host that can keep a writable disk (or mount a volume) works.
 Example Dockerfile sketch:
 
 ```dockerfile
-FROM node:22-alpine
+FROM node:22-bookworm-slim
 WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
@@ -92,6 +93,8 @@ COPY . .
 ENV PORT=3847
 CMD ["npm", "start"]
 ```
+
+`better-sqlite3` ships glibc prebuilds. Use a Debian-based image (as above) so `npm install` does not need a compiler.
 
 > Free dynos often wipe local disk on restart. For a durable demo, use a volume **or** move to Postgres (below).
 
