@@ -1,5 +1,5 @@
 /* Shared ShopFlow helpers */
-window.ShopFlow = {
+window.ShopFlow = Object.assign(window.ShopFlow || {}, {
   async api(path, options = {}) {
     const opts = { headers: { 'Content-Type': 'application/json' }, ...options };
     if (opts.body && typeof opts.body === 'object') {
@@ -19,7 +19,10 @@ window.ShopFlow = {
       el.className = 'toast';
       document.body.appendChild(el);
     }
-    el.textContent = msg;
+    const text = type === 'error' && window.ShopFlow.translateError
+      ? window.ShopFlow.translateError(msg)
+      : msg;
+    el.textContent = text;
     el.className = `toast show ${type}`;
     clearTimeout(el._t);
     el._t = setTimeout(() => el.classList.remove('show'), 3200);
@@ -27,7 +30,10 @@ window.ShopFlow = {
 
   badge(status) {
     const s = String(status || '');
-    return `<span class="badge ${s}">${s.replace('_', ' ')}</span>`;
+    const label = window.ShopFlow.statusLabel
+      ? window.ShopFlow.statusLabel(s)
+      : s.replace(/_/g, ' ');
+    return `<span class="badge ${s}">${window.ShopFlow.escape(label)}</span>`;
   },
 
   escape(s) {
@@ -53,6 +59,6 @@ window.ShopFlow = {
       }
     });
   },
-};
+});
 
 document.addEventListener('DOMContentLoaded', () => ShopFlow.markActiveNav());

@@ -1,60 +1,79 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Routings — ShopFlow</title>
+  <title data-i18n="title.routings">工艺路线 — ShopFlow</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <script>
+    try {
+      var lang = localStorage.getItem('shopflow_lang');
+      if (lang === 'en') {
+        document.documentElement.lang = 'en';
+        document.documentElement.dataset.lang = 'en';
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="app-header">
     <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
     <nav class="nav">
-      <a href="/">Dashboard</a>
-      <a href="/materials.html">Materials</a>
-      <a href="/routings.html">Routings</a>
-      <a href="/work-orders.html">Work Orders</a>
-      <a href="/shop">Shop Floor</a>
-      <a href="/inventory.html">Inventory</a>
+      <a href="/" data-i18n="nav.dashboard">总览</a>
+      <a href="/materials.html" data-i18n="nav.materials">物料</a>
+      <a href="/routings.html" data-i18n="nav.routings">工艺路线</a>
+      <a href="/work-orders.html" data-i18n="nav.workOrders">工单</a>
+      <a href="/shop" data-i18n="nav.shop">车间</a>
+      <a href="/inventory.html" data-i18n="nav.inventory">库存</a>
     </nav>
+    <div class="header-tools">
+      <div class="header-meta" data-i18n="header.meta">演示工厂 · 单站点</div>
+      <div class="lang-toggle" role="group" data-i18n-aria="lang.aria" aria-label="语言">
+        <button type="button" data-set-lang="zh" aria-pressed="true">中文</button>
+        <button type="button" data-set-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
   </header>
   <main>
-    <h1>Routings</h1>
-    <p class="subtitle">Ordered operation lists that can be applied to work orders.</p>
+    <h1 data-i18n="rt.title">工艺路线</h1>
+    <p class="subtitle" data-i18n="rt.subtitle">可套用到工单上的有序工序列表。</p>
     <div class="toolbar">
-      <button class="primary" id="btn-new">+ New routing</button>
+      <button class="primary" id="btn-new" data-i18n="rt.new">+ 新建工艺路线</button>
     </div>
     <div id="list"></div>
   </main>
 
   <div class="modal-backdrop" id="modal">
     <div class="modal">
-      <h2>New routing</h2>
+      <h2 data-i18n="rt.modalTitle">新建工艺路线</h2>
       <div class="form-grid">
-        <label>Code <input id="f-code" placeholder="RT-WIDGET" /></label>
-        <label>Finished material
+        <label><span data-i18n="rt.code">编码</span> <input id="f-code" data-i18n-placeholder="rt.ph.code" placeholder="RT-WIDGET" /></label>
+        <label><span data-i18n="rt.fg">成品物料</span>
           <select id="f-mat"></select>
         </label>
-        <label style="grid-column:1/-1">Name <input id="f-name" /></label>
-        <label style="grid-column:1/-1">Notes <textarea id="f-notes"></textarea></label>
+        <label style="grid-column:1/-1"><span data-i18n="rt.name">名称</span> <input id="f-name" /></label>
+        <label style="grid-column:1/-1"><span data-i18n="rt.notes">备注</span> <textarea id="f-notes"></textarea></label>
       </div>
-      <p class="muted" style="margin:0 0 0.5rem">Operations (seq / code / name / work center) — one per line, pipe-separated</p>
-      <textarea id="f-ops" placeholder="10 | OP10 | Cut blank | SAW-01&#10;20 | OP20 | CNC mill | CNC-02"></textarea>
+      <p class="muted" style="margin:0 0 0.5rem" data-i18n="rt.opsHelp">工序（序号 / 编码 / 名称 / 工作中心），每行一道，用竖线分隔</p>
+      <textarea id="f-ops" data-i18n-placeholder="rt.ph.ops" placeholder="10 | OP10 | 下料 | SAW-01&#10;20 | OP20 | 数控铣 | CNC-02"></textarea>
       <div class="modal-actions">
-        <button class="ghost" id="btn-cancel">Cancel</button>
-        <button class="primary" id="btn-save">Save</button>
+        <button class="ghost" id="btn-cancel" data-i18n="common.cancel">取消</button>
+        <button class="primary" id="btn-save" data-i18n="common.save">保存</button>
       </div>
     </div>
   </div>
 
+  <script src="/js/i18n.js"></script>
   <script src="/js/app.js"></script>
   <script>
     const modal = document.getElementById('modal');
     async function loadMats() {
       const mats = await ShopFlow.api('/api/materials');
+      const prev = document.getElementById('f-mat').value;
       document.getElementById('f-mat').innerHTML =
-        '<option value="">— optional —</option>' +
-        mats.map(m => `<option value="${m.id}">${ShopFlow.escape(m.sku)} — ${ShopFlow.escape(m.name)}</option>`).join('');
+        `<option value="">${ShopFlow.escape(ShopFlow.t('rt.optional'))}</option>` +
+        mats.map(m => `<option value="${m.id}">${ShopFlow.escape(m.sku)} — ${ShopFlow.escape(ShopFlow.materialName(m.sku, m.name))}</option>`).join('');
+      if (prev) document.getElementById('f-mat').value = prev;
     }
     async function load() {
       const routings = await ShopFlow.api('/api/routings');
@@ -62,8 +81,8 @@
         <section class="wo-card">
           <div class="wo-card-head">
             <strong class="mono">${ShopFlow.escape(r.code)}</strong>
-            <span>${ShopFlow.escape(r.name)}</span>
-            <span class="muted">${r.material_sku ? ShopFlow.escape(r.material_sku) : 'no FG link'}</span>
+            <span>${ShopFlow.escape(ShopFlow.routingName(r.code, r.name))}</span>
+            <span class="muted">${r.material_sku ? ShopFlow.escape(r.material_sku) + ' · ' + ShopFlow.escape(ShopFlow.materialName(r.material_sku, r.material_name)) : ShopFlow.escape(ShopFlow.t('rt.noFg'))}</span>
           </div>
           <div class="wo-card-body">
             <ul class="ops-list">
@@ -71,14 +90,14 @@
                 <li>
                   <span class="mono muted">${op.seq}</span>
                   <span class="mono">${ShopFlow.escape(op.code)}</span>
-                  <span>${ShopFlow.escape(op.name)}</span>
+                  <span>${ShopFlow.escape(ShopFlow.opName(op.name))}</span>
                   <span class="spacer"></span>
-                  <span class="muted">${ShopFlow.escape(op.work_center || '')}</span>
-                  <span class="muted">${op.std_minutes || 0} min</span>
+                  <span class="muted">${ShopFlow.escape(ShopFlow.workCenter(op.work_center || ''))}</span>
+                  <span class="muted">${ShopFlow.escape(ShopFlow.t('common.minutes', { n: op.std_minutes || 0 }))}</span>
                 </li>`).join('')}
             </ul>
           </div>
-        </section>`).join('') || '<div class="empty">No routings</div>';
+        </section>`).join('') || `<div class="empty">${ShopFlow.escape(ShopFlow.t('rt.empty'))}</div>`;
     }
     document.getElementById('btn-new').onclick = async () => {
       await loadMats();
@@ -105,10 +124,14 @@
           },
         });
         modal.classList.remove('show');
-        ShopFlow.toast('Routing created');
+        ShopFlow.toast(ShopFlow.t('rt.toast.created'));
         load();
       } catch (e) { ShopFlow.toast(e.message, 'error'); }
     };
+    ShopFlow.onLang(async () => {
+      await load();
+      if (modal.classList.contains('show')) await loadMats();
+    });
     load().catch(e => ShopFlow.toast(e.message, 'error'));
   </script>
 </body>
