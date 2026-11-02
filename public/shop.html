@@ -1,48 +1,65 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Shop Floor — ShopFlow</title>
+  <title data-i18n="title.shop">车间 — ShopFlow</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <script>
+    try {
+      var lang = localStorage.getItem('shopflow_lang');
+      if (lang === 'en') {
+        document.documentElement.lang = 'en';
+        document.documentElement.dataset.lang = 'en';
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="app-header">
     <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
     <nav class="nav">
-      <a href="/">Dashboard</a>
-      <a href="/materials.html">Materials</a>
-      <a href="/routings.html">Routings</a>
-      <a href="/work-orders.html">Work Orders</a>
-      <a href="/shop">Shop Floor</a>
-      <a href="/inventory.html">Inventory</a>
+      <a href="/" data-i18n="nav.dashboard">总览</a>
+      <a href="/materials.html" data-i18n="nav.materials">物料</a>
+      <a href="/routings.html" data-i18n="nav.routings">工艺路线</a>
+      <a href="/work-orders.html" data-i18n="nav.workOrders">工单</a>
+      <a href="/shop" data-i18n="nav.shop">车间</a>
+      <a href="/inventory.html" data-i18n="nav.inventory">库存</a>
     </nav>
+    <div class="header-tools">
+      <div class="header-meta" data-i18n="header.meta">演示工厂 · 单站点</div>
+      <div class="lang-toggle" role="group" data-i18n-aria="lang.aria" aria-label="语言">
+        <button type="button" data-set-lang="zh" aria-pressed="true">中文</button>
+        <button type="button" data-set-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
   </header>
   <main>
-    <h1>Shop Floor</h1>
-    <p class="subtitle">Scan or select an operation, then Start / Complete. Barcode strings simulate a handheld scanner.</p>
+    <h1 data-i18n="shop.title">车间</h1>
+    <p class="subtitle" data-i18n="shop.subtitle">扫码或点选工序，然后开工 / 完工。条码字符串用来模拟手持扫描枪。</p>
 
     <section class="card" style="margin-bottom:1rem">
-      <h2>Scan</h2>
+      <h2 data-i18n="shop.scanTitle">扫码</h2>
       <div class="hint">
-        Try seed codes: <span class="mono">WO-1001</span>,
+        <span data-i18n="shop.trySeed">可试演示码：</span>
+        <span class="mono">WO-1001</span>,
         <span class="mono">WO-1002</span>,
         <span class="mono">WO-1002:OP20</span>
       </div>
       <div class="scan-box">
-        <label style="flex:1">Barcode / QR string
-          <input id="scan" placeholder="WO-1001 or WO-1001:OP20" autofocus />
+        <label style="flex:1"><span data-i18n="shop.barcode">条码 / 二维码</span>
+          <input id="scan" data-i18n-placeholder="shop.ph.scan" placeholder="WO-1001 或 WO-1001:OP20" autofocus />
         </label>
-        <button class="primary" id="btn-lookup">Lookup</button>
+        <button class="primary" id="btn-lookup" data-i18n="shop.lookup">查询</button>
       </div>
       <div id="focus" style="margin-top:1rem"></div>
     </section>
 
     <section>
       <div class="toolbar">
-        <h2 style="margin:0">Released &amp; in progress</h2>
+        <h2 style="margin:0" data-i18n="shop.boardTitle">已下达与进行中</h2>
         <span class="spacer"></span>
-        <button class="ghost" id="btn-refresh">Refresh board</button>
+        <button class="ghost" id="btn-refresh" data-i18n="shop.refresh">刷新看板</button>
       </div>
       <div id="board"></div>
     </section>
@@ -50,32 +67,36 @@
 
   <div class="modal-backdrop" id="complete-modal">
     <div class="modal">
-      <h2>Complete operation</h2>
+      <h2 data-i18n="shop.modalTitle">完工工序</h2>
       <div class="form-grid">
-        <label>Qty good <input id="c-good" type="number" step="any" min="0" /></label>
-        <label>Qty scrap <input id="c-scrap" type="number" step="any" min="0" value="0" /></label>
-        <label>Issue material (optional)
-          <select id="c-issue-mat"><option value="">— skip —</option></select>
+        <label><span data-i18n="shop.qtyGood">合格数量</span> <input id="c-good" type="number" step="any" min="0" /></label>
+        <label><span data-i18n="shop.qtyScrap">报废数量</span> <input id="c-scrap" type="number" step="any" min="0" value="0" /></label>
+        <label><span data-i18n="shop.issueMat">发料（可选）</span>
+          <select id="c-issue-mat"><option value="">— 跳过 —</option></select>
         </label>
-        <label>Issue qty <input id="c-issue-qty" type="number" step="any" min="0" placeholder="0" /></label>
+        <label><span data-i18n="shop.issueQty">发料数量</span> <input id="c-issue-qty" type="number" step="any" min="0" placeholder="0" /></label>
       </div>
       <div class="modal-actions">
-        <button class="ghost" id="c-cancel">Cancel</button>
-        <button class="ok" id="c-save">Complete</button>
+        <button class="ghost" id="c-cancel" data-i18n="common.cancel">取消</button>
+        <button class="ok" id="c-save" data-i18n="shop.complete">完工</button>
       </div>
     </div>
   </div>
 
+  <script src="/js/i18n.js"></script>
   <script src="/js/app.js"></script>
   <script>
     let pendingCompleteOp = null;
     let materials = [];
 
     async function loadMaterials() {
+      const select = document.getElementById('c-issue-mat');
+      const prev = select.value;
       materials = await ShopFlow.api('/api/materials');
-      document.getElementById('c-issue-mat').innerHTML =
-        '<option value="">— skip —</option>' +
-        materials.map(m => `<option value="${m.id}">${ShopFlow.escape(m.sku)} (${m.on_hand} ${ShopFlow.escape(m.unit)})</option>`).join('');
+      select.innerHTML =
+        `<option value="">${ShopFlow.escape(ShopFlow.t('shop.skip'))}</option>` +
+        materials.map(m => `<option value="${m.id}">${ShopFlow.escape(m.sku)} · ${ShopFlow.escape(ShopFlow.materialName(m.sku, m.name))} (${m.on_hand} ${ShopFlow.escape(ShopFlow.unit(m.unit))})</option>`).join('');
+      if (prev) select.value = prev;
     }
 
     function renderFocus(data) {
@@ -87,7 +108,7 @@
           <div class="wo-card-head">
             <strong class="mono">${ShopFlow.escape(wo.wo_number)}</strong>
             ${ShopFlow.badge(wo.status)}
-            <span>${ShopFlow.escape(wo.material_sku)} · plan ${wo.qty_planned}</span>
+            <span>${ShopFlow.escape(wo.material_sku)} · ${ShopFlow.escape(ShopFlow.materialName(wo.material_sku, wo.material_name))} · ${ShopFlow.escape(ShopFlow.t('shop.planBit', { qty: wo.qty_planned }))}</span>
           </div>
           <div class="wo-card-body">
             <ul class="ops-list">
@@ -95,13 +116,13 @@
                 <li style="${focus && focus.id===op.id ? 'background:rgba(59,130,246,0.12);border-radius:6px;padding-left:0.4rem;padding-right:0.4rem' : ''}">
                   <span class="mono muted">${op.seq}</span>
                   <span class="mono">${ShopFlow.escape(op.code)}</span>
-                  <span>${ShopFlow.escape(op.name)}</span>
+                  <span>${ShopFlow.escape(ShopFlow.opName(op.name))}</span>
                   ${ShopFlow.badge(op.status)}
                   <span class="spacer"></span>
                   ${op.status !== 'done' ? `
-                    <button class="primary btn-start" data-id="${op.id}" ${op.status==='in_progress'?'disabled':''}>Start</button>
-                    <button class="ok btn-complete" data-id="${op.id}" data-qty="${wo.qty_planned}">Complete</button>
-                  ` : `<span class="muted">good ${op.qty_good}</span>`}
+                    <button class="primary btn-start" data-id="${op.id}" ${op.status==='in_progress'?'disabled':''}>${ShopFlow.escape(ShopFlow.t('shop.start'))}</button>
+                    <button class="ok btn-complete" data-id="${op.id}" data-qty="${wo.qty_planned}">${ShopFlow.escape(ShopFlow.t('shop.complete'))}</button>
+                  ` : `<span class="muted">${ShopFlow.escape(ShopFlow.t('shop.goodBit', { qty: op.qty_good }))}</span>`}
                 </li>`).join('')}
             </ul>
           </div>
@@ -118,7 +139,7 @@
       try {
         const scan = document.getElementById('scan').value.trim();
         await ShopFlow.api('/api/shop/start', { method: 'POST', body: { operation_id, scan_code: scan || null } });
-        ShopFlow.toast('Operation started');
+        ShopFlow.toast(ShopFlow.t('shop.toast.started'));
         await refreshAll();
         if (scan) await lookup(false);
       } catch (e) { ShopFlow.toast(e.message, 'error'); }
@@ -154,7 +175,7 @@
           },
         });
         document.getElementById('complete-modal').classList.remove('show');
-        ShopFlow.toast(result.finished ? 'WO finished — FG received to inventory' : 'Operation completed');
+        ShopFlow.toast(result.finished ? ShopFlow.t('shop.toast.finished') : ShopFlow.t('shop.toast.completed'));
         await refreshAll();
         const scan = document.getElementById('scan').value.trim();
         if (scan) await lookup(false);
@@ -176,7 +197,7 @@
       const board = await ShopFlow.api('/api/shop/board');
       const el = document.getElementById('board');
       if (!board.length) {
-        el.innerHTML = '<div class="empty">No released / in-progress work orders. Release a draft on the Work Orders page.</div>';
+        el.innerHTML = `<div class="empty">${ShopFlow.escape(ShopFlow.t('shop.empty'))}</div>`;
         return;
       }
       el.innerHTML = board.map(wo => `
@@ -184,9 +205,9 @@
           <div class="wo-card-head">
             <strong class="mono">${ShopFlow.escape(wo.wo_number)}</strong>
             ${ShopFlow.badge(wo.status)}
-            <span>${ShopFlow.escape(wo.material_sku)} · qty ${wo.qty_planned}</span>
+            <span>${ShopFlow.escape(wo.material_sku)} · ${ShopFlow.escape(ShopFlow.materialName(wo.material_sku, wo.material_name))} · ${ShopFlow.escape(ShopFlow.t('wo.qtyBit', { qty: wo.qty_planned }))}</span>
             <span class="spacer"></span>
-            <button class="ghost btn-fill" data-code="${ShopFlow.escape(wo.wo_number)}">Load in scan</button>
+            <button class="ghost btn-fill" data-code="${ShopFlow.escape(wo.wo_number)}">${ShopFlow.escape(ShopFlow.t('shop.loadScan'))}</button>
           </div>
           <div class="wo-card-body">
             <ul class="ops-list">
@@ -194,14 +215,14 @@
                 <li>
                   <span class="mono muted">${op.seq}</span>
                   <span class="mono">${ShopFlow.escape(op.code)}</span>
-                  <span>${ShopFlow.escape(op.name)}</span>
-                  <span class="muted">${ShopFlow.escape(op.work_center || '')}</span>
+                  <span>${ShopFlow.escape(ShopFlow.opName(op.name))}</span>
+                  <span class="muted">${ShopFlow.escape(ShopFlow.workCenter(op.work_center || ''))}</span>
                   ${ShopFlow.badge(op.status)}
                   <span class="spacer"></span>
                   ${op.status !== 'done' ? `
-                    <button class="primary btn-start" data-id="${op.id}">Start</button>
-                    <button class="ok btn-complete" data-id="${op.id}" data-qty="${wo.qty_planned}">Complete</button>
-                  ` : `<span class="muted">good ${op.qty_good}</span>`}
+                    <button class="primary btn-start" data-id="${op.id}">${ShopFlow.escape(ShopFlow.t('shop.start'))}</button>
+                    <button class="ok btn-complete" data-id="${op.id}" data-qty="${wo.qty_planned}">${ShopFlow.escape(ShopFlow.t('shop.complete'))}</button>
+                  ` : `<span class="muted">${ShopFlow.escape(ShopFlow.t('shop.goodBit', { qty: op.qty_good }))}</span>`}
                 </li>`).join('')}
             </ul>
           </div>
@@ -222,6 +243,13 @@
       if (e.key === 'Enter') lookup();
     });
     document.getElementById('btn-refresh').onclick = () => refreshAll();
+
+    ShopFlow.onLang(async () => {
+      await refreshAll();
+      const scan = document.getElementById('scan').value.trim();
+      if (scan) await lookup(false);
+      if (document.getElementById('complete-modal').classList.contains('show')) await loadMaterials();
+    });
 
     refreshAll().catch(e => ShopFlow.toast(e.message, 'error'));
   </script>

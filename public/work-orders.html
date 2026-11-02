@@ -1,66 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Work Orders — ShopFlow</title>
+  <title data-i18n="title.workOrders">工单 — ShopFlow</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <script>
+    try {
+      var lang = localStorage.getItem('shopflow_lang');
+      if (lang === 'en') {
+        document.documentElement.lang = 'en';
+        document.documentElement.dataset.lang = 'en';
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="app-header">
     <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
     <nav class="nav">
-      <a href="/">Dashboard</a>
-      <a href="/materials.html">Materials</a>
-      <a href="/routings.html">Routings</a>
-      <a href="/work-orders.html">Work Orders</a>
-      <a href="/shop">Shop Floor</a>
-      <a href="/inventory.html">Inventory</a>
+      <a href="/" data-i18n="nav.dashboard">总览</a>
+      <a href="/materials.html" data-i18n="nav.materials">物料</a>
+      <a href="/routings.html" data-i18n="nav.routings">工艺路线</a>
+      <a href="/work-orders.html" data-i18n="nav.workOrders">工单</a>
+      <a href="/shop" data-i18n="nav.shop">车间</a>
+      <a href="/inventory.html" data-i18n="nav.inventory">库存</a>
     </nav>
+    <div class="header-tools">
+      <div class="header-meta" data-i18n="header.meta">演示工厂 · 单站点</div>
+      <div class="lang-toggle" role="group" data-i18n-aria="lang.aria" aria-label="语言">
+        <button type="button" data-set-lang="zh" aria-pressed="true">中文</button>
+        <button type="button" data-set-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
   </header>
   <main>
-    <h1>Work Orders</h1>
-    <p class="subtitle">Create orders, apply a routing, release to the shop floor.</p>
+    <h1 data-i18n="wo.title">工单</h1>
+    <p class="subtitle" data-i18n="wo.subtitle">创建工单、套用工艺路线，并下达到车间。</p>
     <div class="toolbar">
-      <button class="primary" id="btn-new">+ New work order</button>
-      <button class="ghost" id="btn-refresh">Refresh</button>
+      <button class="primary" id="btn-new" data-i18n="wo.new">+ 新建工单</button>
+      <button class="ghost" id="btn-refresh" data-i18n="wo.refresh">刷新</button>
     </div>
     <div id="list"></div>
   </main>
 
   <div class="modal-backdrop" id="modal">
     <div class="modal">
-      <h2>New work order</h2>
+      <h2 data-i18n="wo.modalTitle">新建工单</h2>
       <div class="form-grid">
-        <label>WO number <input id="f-num" placeholder="WO-1100" /></label>
-        <label>Qty planned <input id="f-qty" type="number" value="10" min="1" /></label>
-        <label>Finished material
+        <label><span data-i18n="wo.number">工单号</span> <input id="f-num" data-i18n-placeholder="wo.ph.number" placeholder="WO-1100" /></label>
+        <label><span data-i18n="wo.qtyPlanned">计划数量</span> <input id="f-qty" type="number" value="10" min="1" /></label>
+        <label><span data-i18n="wo.fg">成品物料</span>
           <select id="f-mat"></select>
         </label>
-        <label>Routing
+        <label><span data-i18n="wo.routing">工艺路线</span>
           <select id="f-routing"></select>
         </label>
-        <label>Due date <input id="f-due" type="date" /></label>
-        <label style="grid-column:1/-1">Notes <textarea id="f-notes"></textarea></label>
+        <label><span data-i18n="wo.due">交期</span> <input id="f-due" type="date" /></label>
+        <label style="grid-column:1/-1"><span data-i18n="wo.notes">备注</span> <textarea id="f-notes"></textarea></label>
       </div>
       <div class="modal-actions">
-        <button class="ghost" id="btn-cancel">Cancel</button>
-        <button class="primary" id="btn-save">Create as draft</button>
+        <button class="ghost" id="btn-cancel" data-i18n="common.cancel">取消</button>
+        <button class="primary" id="btn-save" data-i18n="wo.createDraft">创建为草稿</button>
       </div>
     </div>
   </div>
 
   <div class="modal-backdrop" id="detail-modal">
     <div class="modal" style="width:min(640px,100%)">
-      <h2 id="d-title">Work order</h2>
+      <h2 id="d-title">工单</h2>
       <div id="d-body"></div>
       <div class="modal-actions">
-        <button class="ghost" id="d-close">Close</button>
-        <button class="primary" id="d-release">Release</button>
+        <button class="ghost" id="d-close" data-i18n="common.close">关闭</button>
+        <button class="primary" id="d-release" data-i18n="wo.release">下达</button>
       </div>
     </div>
   </div>
 
+  <script src="/js/i18n.js"></script>
   <script src="/js/app.js"></script>
   <script>
     let materials = [], routings = [], currentId = null;
@@ -68,13 +85,26 @@
     const detail = document.getElementById('detail-modal');
 
     async function loadLookups() {
+      const matPrev = document.getElementById('f-mat').value;
+      const rtPrev = document.getElementById('f-routing').value;
       materials = await ShopFlow.api('/api/materials');
       routings = await ShopFlow.api('/api/routings');
       document.getElementById('f-mat').innerHTML = materials.map(m =>
-        `<option value="${m.id}">${ShopFlow.escape(m.sku)} — ${ShopFlow.escape(m.name)}</option>`).join('');
+        `<option value="${m.id}">${ShopFlow.escape(m.sku)} — ${ShopFlow.escape(ShopFlow.materialName(m.sku, m.name))}</option>`).join('');
       document.getElementById('f-routing').innerHTML =
-        '<option value="">— none —</option>' +
-        routings.map(r => `<option value="${r.id}">${ShopFlow.escape(r.code)} — ${ShopFlow.escape(r.name)}</option>`).join('');
+        `<option value="">${ShopFlow.escape(ShopFlow.t('wo.noneRouting'))}</option>` +
+        routings.map(r => `<option value="${r.id}">${ShopFlow.escape(r.code)} — ${ShopFlow.escape(ShopFlow.routingName(r.code, r.name))}</option>`).join('');
+      if (matPrev) document.getElementById('f-mat').value = matPrev;
+      if (rtPrev) document.getElementById('f-routing').value = rtPrev;
+    }
+
+    function routingBit(wo) {
+      if (!wo.routing_code) return ShopFlow.escape(ShopFlow.t('wo.noRouting'));
+      const name = ShopFlow.routingName(wo.routing_code, wo.routing_code);
+      if (ShopFlow.lang() === 'zh' && name !== wo.routing_code) {
+        return `${ShopFlow.escape(wo.routing_code)} · ${ShopFlow.escape(name)}`;
+      }
+      return ShopFlow.escape(wo.routing_code);
     }
 
     async function load() {
@@ -84,14 +114,14 @@
           <div class="wo-card-head">
             <strong class="mono">${ShopFlow.escape(wo.wo_number)}</strong>
             ${ShopFlow.badge(wo.status)}
-            <span>${ShopFlow.escape(wo.material_sku)} · qty ${wo.qty_planned}</span>
-            <span class="muted">${wo.routing_code ? ShopFlow.escape(wo.routing_code) : 'no routing'}</span>
+            <span>${ShopFlow.escape(wo.material_sku)} · ${ShopFlow.escape(ShopFlow.t('wo.qtyBit', { qty: wo.qty_planned }))}</span>
+            <span class="muted">${routingBit(wo)}</span>
             <span class="spacer"></span>
-            <span class="muted">due ${ShopFlow.escape(wo.due_date || '—')}</span>
-            <button data-id="${wo.id}" class="btn-view">View / ops</button>
-            ${wo.status === 'draft' ? `<button class="primary btn-release" data-id="${wo.id}">Release</button>` : ''}
+            <span class="muted">${ShopFlow.escape(ShopFlow.t('wo.dueBit', { date: wo.due_date || '—' }))}</span>
+            <button data-id="${wo.id}" class="btn-view">${ShopFlow.escape(ShopFlow.t('wo.view'))}</button>
+            ${wo.status === 'draft' ? `<button class="primary btn-release" data-id="${wo.id}">${ShopFlow.escape(ShopFlow.t('wo.release'))}</button>` : ''}
           </div>
-        </section>`).join('') || '<div class="empty">No work orders</div>';
+        </section>`).join('') || `<div class="empty">${ShopFlow.escape(ShopFlow.t('wo.empty'))}</div>`;
 
       document.querySelectorAll('.btn-view').forEach(b => b.onclick = () => openDetail(Number(b.dataset.id)));
       document.querySelectorAll('.btn-release').forEach(b => b.onclick = () => release(Number(b.dataset.id)));
@@ -104,22 +134,25 @@
       currentId = id;
       const wo = await ShopFlow.api(`/api/work-orders/${id}`);
       document.getElementById('d-title').textContent = `${wo.wo_number} · ${wo.material_sku}`;
+      const routingLabel = wo.routing_name
+        ? ShopFlow.routingName(wo.routing_code, wo.routing_name)
+        : ShopFlow.t('wo.noRoutingName');
       document.getElementById('d-body').innerHTML = `
-        <p>${ShopFlow.badge(wo.status)} &nbsp; Planned ${wo.qty_planned} &nbsp; Completed ${wo.qty_completed}
-           &nbsp; <span class="muted">${ShopFlow.escape(wo.routing_name || 'No routing')}</span></p>
+        <p>${ShopFlow.badge(wo.status)} &nbsp; ${ShopFlow.escape(ShopFlow.t('wo.plannedBit', { qty: wo.qty_planned }))} &nbsp; ${ShopFlow.escape(ShopFlow.t('wo.completedBit', { qty: wo.qty_completed }))}
+           &nbsp; <span class="muted">${ShopFlow.escape(routingLabel)}</span></p>
         <ul class="ops-list">
           ${wo.operations.map(op => `
             <li>
               <span class="mono muted">${op.seq}</span>
               <span class="mono">${ShopFlow.escape(op.code)}</span>
-              <span>${ShopFlow.escape(op.name)}</span>
+              <span>${ShopFlow.escape(ShopFlow.opName(op.name))}</span>
               ${ShopFlow.badge(op.status)}
               <span class="spacer"></span>
-              <span class="muted">good ${op.qty_good} / scrap ${op.qty_scrap}</span>
-            </li>`).join('') || '<li class="muted">No operations — apply a routing</li>'}
+              <span class="muted">${ShopFlow.escape(ShopFlow.t('wo.goodScrap', { good: op.qty_good, scrap: op.qty_scrap }))}</span>
+            </li>`).join('') || `<li class="muted">${ShopFlow.escape(ShopFlow.t('wo.noOps'))}</li>`}
         </ul>
-        <p class="hint" style="margin-top:0.75rem">Scan codes for shop floor:
-          <span class="mono">${ShopFlow.escape(wo.wo_number)}</span> or
+        <p class="hint" style="margin-top:0.75rem">${ShopFlow.escape(ShopFlow.t('wo.scanHint'))}
+          <span class="mono">${ShopFlow.escape(wo.wo_number)}</span> ${ShopFlow.lang() === 'zh' ? '或' : 'or'}
           <span class="mono">${ShopFlow.escape(wo.wo_number)}:OP20</span>
         </p>`;
       document.getElementById('d-release').style.display = wo.status === 'draft' ? '' : 'none';
@@ -129,7 +162,7 @@
     async function release(id) {
       try {
         await ShopFlow.api(`/api/work-orders/${id}/release`, { method: 'POST', body: {} });
-        ShopFlow.toast('Work order released');
+        ShopFlow.toast(ShopFlow.t('wo.toast.released'));
         detail.classList.remove('show');
         load();
       } catch (e) { ShopFlow.toast(e.message, 'error'); }
@@ -161,11 +194,16 @@
           },
         });
         modal.classList.remove('show');
-        ShopFlow.toast('Work order created');
+        ShopFlow.toast(ShopFlow.t('wo.toast.created'));
         load();
       } catch (e) { ShopFlow.toast(e.message, 'error'); }
     };
 
+    ShopFlow.onLang(async () => {
+      await load();
+      if (modal.classList.contains('show')) await loadLookups();
+      if (detail.classList.contains('show') && currentId) await openDetail(currentId);
+    });
     load().catch(e => ShopFlow.toast(e.message, 'error'));
   </script>
 </body>

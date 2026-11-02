@@ -1,50 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Inventory — ShopFlow</title>
+  <title data-i18n="title.inventory">库存 — ShopFlow</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <script>
+    try {
+      var lang = localStorage.getItem('shopflow_lang');
+      if (lang === 'en') {
+        document.documentElement.lang = 'en';
+        document.documentElement.dataset.lang = 'en';
+      }
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <header class="app-header">
     <a class="brand" href="/"><span class="brand-mark">SF</span> ShopFlow</a>
     <nav class="nav">
-      <a href="/">Dashboard</a>
-      <a href="/materials.html">Materials</a>
-      <a href="/routings.html">Routings</a>
-      <a href="/work-orders.html">Work Orders</a>
-      <a href="/shop">Shop Floor</a>
-      <a href="/inventory.html">Inventory</a>
+      <a href="/" data-i18n="nav.dashboard">总览</a>
+      <a href="/materials.html" data-i18n="nav.materials">物料</a>
+      <a href="/routings.html" data-i18n="nav.routings">工艺路线</a>
+      <a href="/work-orders.html" data-i18n="nav.workOrders">工单</a>
+      <a href="/shop" data-i18n="nav.shop">车间</a>
+      <a href="/inventory.html" data-i18n="nav.inventory">库存</a>
     </nav>
+    <div class="header-tools">
+      <div class="header-meta" data-i18n="header.meta">演示工厂 · 单站点</div>
+      <div class="lang-toggle" role="group" data-i18n-aria="lang.aria" aria-label="语言">
+        <button type="button" data-set-lang="zh" aria-pressed="true">中文</button>
+        <button type="button" data-set-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
   </header>
   <main>
-    <h1>Inventory</h1>
-    <p class="subtitle">On-hand balances and issue / receipt / adjust movements.</p>
+    <h1 data-i18n="inv.title">库存</h1>
+    <p class="subtitle" data-i18n="inv.subtitle">现存量，以及发料 / 入库 / 调整记录。</p>
 
     <div class="grid-2">
       <section class="card">
-        <h2>Quick movement</h2>
+        <h2 data-i18n="inv.quick">快速过账</h2>
         <div class="form-grid">
-          <label>Material
+          <label><span data-i18n="inv.material">物料</span>
             <select id="m-mat"></select>
           </label>
-          <label>Type
+          <label><span data-i18n="inv.type">类型</span>
             <select id="m-type">
-              <option value="issue">Issue (out)</option>
-              <option value="receipt">Receipt (in)</option>
-              <option value="adjust">Adjust (+/−)</option>
+              <option value="issue" data-i18n="inv.issue">发料（出库）</option>
+              <option value="receipt" data-i18n="inv.receipt">入库（收入）</option>
+              <option value="adjust" data-i18n="inv.adjust">调整（±）</option>
             </select>
           </label>
-          <label>Qty <input id="m-qty" type="number" step="any" /></label>
-          <label>Note <input id="m-note" placeholder="Optional" /></label>
+          <label><span data-i18n="inv.qty">数量</span> <input id="m-qty" type="number" step="any" /></label>
+          <label><span data-i18n="inv.note">备注</span> <input id="m-note" data-i18n-placeholder="inv.ph.note" placeholder="可选" /></label>
         </div>
-        <button class="primary" id="btn-move">Post movement</button>
+        <button class="primary" id="btn-move" data-i18n="inv.post">过账</button>
       </section>
       <section class="card flat">
-        <div style="padding:0.85rem 1rem 0"><h2>On hand</h2></div>
+        <div style="padding:0.85rem 1rem 0"><h2 data-i18n="inv.onHand">现存量</h2></div>
         <table>
-          <thead><tr><th>SKU</th><th>Name</th><th>Unit</th><th class="right">Qty</th></tr></thead>
+          <thead>
+            <tr>
+              <th data-i18n="inv.col.sku">编码</th>
+              <th data-i18n="inv.col.name">名称</th>
+              <th data-i18n="inv.col.unit">单位</th>
+              <th class="right" data-i18n="inv.col.qty">数量</th>
+            </tr>
+          </thead>
           <tbody id="onhand"></tbody>
         </table>
       </section>
@@ -52,26 +75,37 @@
 
     <div style="height:1rem"></div>
     <section class="card flat">
-      <div style="padding:0.85rem 1rem 0"><h2>Movement history</h2></div>
+      <div style="padding:0.85rem 1rem 0"><h2 data-i18n="inv.history">出入库记录</h2></div>
       <table>
         <thead>
-          <tr><th>When</th><th>SKU</th><th>Type</th><th class="right">Qty</th><th>WO</th><th>Note</th></tr>
+          <tr>
+            <th data-i18n="inv.col.when">时间</th>
+            <th data-i18n="inv.col.sku">编码</th>
+            <th data-i18n="inv.col.type">类型</th>
+            <th class="right" data-i18n="inv.col.qty">数量</th>
+            <th data-i18n="inv.col.wo">工单</th>
+            <th data-i18n="inv.col.note">备注</th>
+          </tr>
         </thead>
         <tbody id="moves"></tbody>
       </table>
     </section>
   </main>
+  <script src="/js/i18n.js"></script>
   <script src="/js/app.js"></script>
   <script>
     async function load() {
+      const matSel = document.getElementById('m-mat');
+      const prev = matSel.value;
       const mats = await ShopFlow.api('/api/materials');
-      document.getElementById('m-mat').innerHTML = mats.map(m =>
-        `<option value="${m.id}">${ShopFlow.escape(m.sku)} (${m.on_hand})</option>`).join('');
+      matSel.innerHTML = mats.map(m =>
+        `<option value="${m.id}">${ShopFlow.escape(m.sku)} · ${ShopFlow.escape(ShopFlow.materialName(m.sku, m.name))} (${m.on_hand})</option>`).join('');
+      if (prev) matSel.value = prev;
       document.getElementById('onhand').innerHTML = mats.map(m => `
         <tr>
           <td class="mono">${ShopFlow.escape(m.sku)}</td>
-          <td>${ShopFlow.escape(m.name)}</td>
-          <td>${ShopFlow.escape(m.unit)}</td>
+          <td>${ShopFlow.escape(ShopFlow.materialName(m.sku, m.name))}</td>
+          <td>${ShopFlow.escape(ShopFlow.unit(m.unit))}</td>
           <td class="right">${m.on_hand}</td>
         </tr>`).join('');
 
@@ -80,11 +114,11 @@
         <tr>
           <td class="muted">${ShopFlow.escape((m.created_at||'').replace('T',' ').slice(0,19))}</td>
           <td class="mono">${ShopFlow.escape(m.sku)}</td>
-          <td>${ShopFlow.escape(m.movement_type)}</td>
+          <td>${ShopFlow.escape(ShopFlow.moveType(m.movement_type))}</td>
           <td class="right">${m.qty}</td>
           <td class="mono">${ShopFlow.escape(m.wo_number || '—')}</td>
           <td class="muted">${ShopFlow.escape(m.note || '')}</td>
-        </tr>`).join('') : '<tr><td colspan="6" class="empty">No movements yet — complete a WO or post one above</td></tr>';
+        </tr>`).join('') : `<tr><td colspan="6" class="empty">${ShopFlow.escape(ShopFlow.t('inv.empty'))}</td></tr>`;
     }
 
     document.getElementById('btn-move').onclick = async () => {
@@ -96,12 +130,13 @@
           note: document.getElementById('m-note').value || undefined,
         };
         await ShopFlow.api(`/api/inventory/${type}`, { method: 'POST', body });
-        ShopFlow.toast('Movement posted');
+        ShopFlow.toast(ShopFlow.t('inv.toast.posted'));
         document.getElementById('m-qty').value = '';
         load();
       } catch (e) { ShopFlow.toast(e.message, 'error'); }
     };
 
+    ShopFlow.onLang(() => load());
     load().catch(e => ShopFlow.toast(e.message, 'error'));
   </script>
 </body>

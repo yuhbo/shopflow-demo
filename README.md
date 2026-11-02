@@ -1,6 +1,6 @@
 # ShopFlow Demo
 
-English clickable demo for light manufacturing:
+Chinese-first clickable demo (English toggle in the header) for light manufacturing:
 
 **Materials → Routings → Work Orders → Shop Floor reporting → Inventory**
 
@@ -15,6 +15,8 @@ npm start
 ```
 
 Open **http://localhost:3847**
+
+The UI defaults to **中文**. **中文 / English** in the header switches every page and is stored in `localStorage` as `shopflow_lang`. Demo prices on the dashboard are illustrative only: about **$30–$55 per plant / month** (Starter about $35, Growth about $55), shown in Chinese as **约 ¥220–¥400/厂/月** at roughly 7.2 CNY per USD. There is no checkout.
 
 | Script | Purpose |
 |--------|---------|
@@ -120,7 +122,7 @@ You do **not** need Postgres to validate the product walkthrough locally.
 
 ## Out of scope (P0)
 
-Native apps, Stripe, multi-tenant auth, full MRP, non-English UI.
+Native apps, payments, multi-tenant auth, full MRP.
 
 ## License
 
