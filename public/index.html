@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title data-i18n="title.dashboard">总览 — ShopFlow</title>
+  <title data-i18n="title.dashboard">ShopFlow 演示 — 工单、工序扫码、轻量库存</title>
   <link rel="stylesheet" href="/css/app.css" />
   <script>
     try {
@@ -35,7 +35,41 @@
     </div>
   </header>
   <main>
-    <h1 data-i18n="dash.title">总览</h1>
+    <section class="outreach" aria-labelledby="outreach-title">
+      <div class="outreach-kicker" data-i18n="hero.kicker">单厂轻量演示</div>
+      <h1 id="outreach-title" data-i18n="hero.title">工单 → 工序扫码 → 轻量库存</h1>
+      <p class="outreach-for" data-i18n="hero.for">给还在用表格管生产的单厂机加或轻装配车间。不是完整 ERP。</p>
+      <ol class="hero-steps">
+        <li>
+          <span class="step-n" aria-hidden="true">1</span>
+          <span>
+            <span class="step-name" data-i18n="hero.step1">工单</span>
+            <span class="step-detail" data-i18n="hero.step1d">打开草稿并下达</span>
+          </span>
+        </li>
+        <li>
+          <span class="step-n" aria-hidden="true">2</span>
+          <span>
+            <span class="step-name" data-i18n="hero.step2">工序扫码</span>
+            <span class="step-detail" data-i18n="hero.step2d">车间开工、完工</span>
+          </span>
+        </li>
+        <li>
+          <span class="step-n" aria-hidden="true">3</span>
+          <span>
+            <span class="step-name" data-i18n="hero.step3">轻量库存</span>
+            <span class="step-detail" data-i18n="hero.step3d">完工后看现存量</span>
+          </span>
+        </li>
+      </ol>
+      <div class="hero-cta">
+        <a class="btn primary" href="/shop" data-i18n="hero.cta.shop">进入车间</a>
+        <a class="btn" href="/work-orders.html" data-i18n="hero.cta.wo">打开工单</a>
+      </div>
+      <p class="wake-notice" data-i18n="hero.wake">若刚才转了一会儿才打开：免费档冷启动大约要 20–40 秒（Render 免费实例休眠后唤醒）。打开后即可点车间和工单；数据在这次进程的 SQLite 里。</p>
+    </section>
+
+    <h2 data-i18n="dash.title">总览</h2>
     <p class="subtitle" data-i18n="dash.subtitle">演示工厂的工单进度和库存概况。</p>
 
     <section class="pricing" aria-labelledby="pricing-title">
